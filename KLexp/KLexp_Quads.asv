@@ -4,20 +4,20 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %mm
 standdev = .05; % 5%
-calc = 0;
+calc = 1;
 %% Importing Mesh
 
-fid = fopen('qua.msh');
+fid = fopen('quarter.msh');
 
-hdrRows = 11;
+hdrRows = 13;
 hdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
 matData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
-hdrData2 = textscan(fid,'%s', 201, 'Delimiter','\n');
-matData2 = textscan(fid,'%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
+hdrData2 = textscan(fid,'%s', 1201, 'Delimiter','\n');
+matData2 = textscan(fid,'%f%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
 
 fclose(fid);
 nodes = matData{1}(:,2:3);
-el = matData2{1}(:,6:8)';
+el = matData2{1}(:,6:end)';
 
 
 
@@ -38,81 +38,92 @@ el = matData2{1}(:,6:8)';
 
 %% Calc Values
 n = 3; %nodes per element
-xi1 = [1/6; 2/3; 1/6]; %Integration points
-xi2 = [1/6; 1/6; 2/3];
-w = [1/6; 1/6; 1/6]; %Weighting
+xi1 = [1/sqrt(3); -1/sqrt(3)]; %Integration points
+xi2 = [1/sqrt(3); -1/sqrt(3)];
+w = [1; 1]; %Weighting
 lam = 1-xi1-xi2; %phi1 prewritten to save space
-C = zeros(cN,cN);
+%save C.mat zeros(cN,cN);
+C = [];
+N = [];
+save CN.mat C N
+CN = matfile('CN.mat','Writable',true);
 
-Nij = zeros(cN,cN);
-
-Q = 3;
+Q = 2;
+syms x y xi nu
 if calc == 1
-for m = 1:rE %Outer element loop
-    CeOuter = 0; %Reset variable - Outer set of summations\
-    Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);...
-        nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
-    idx2 = [el(1,m), el(2,m), el(3,m)];
-    %Ne = 0;
-
-    for p = 1:Q %Outer qp loop        
+Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
+     (1/4)*(1+1*xi)*(1-1*nu);...
+     (1/4)*(1+1*xi)*(1+1*nu);...
+     (1/4)*(1-1*xi)*(1+1*nu)]; %Parametric shape functions
+    for m = 1:rE %Outer element loop
+        CeOuter = 0; %Reset variable - Outer set of summations\
         
-        Np = [lam(p) xi1(p) xi2(p)];... %TRI3 shape functions at current integration points
-            
-        x2 = [ Np(1)*nodes(el(1,m),1) + Np(2)*nodes(el(2,m),1) + Np(3)*nodes(el(3,m),1);... %2nd coordinate
-            Np(1)*nodes(el(1,m),2) + Np(2)*nodes(el(2,m),2) + Np(3)*nodes(el(3,m),2)];
+        xem = nodes(el(:,m),1); %xe corrdinatates for mth element
+        yem = nodes(el(:,m),2); %ye coordinates for mth element
+        idx2 = [el(1,m), el(2,m), el(3,m)];
+        %Ne = 0;
         
+        for p = 1:Q %Outer qp loop 1
+            
+                
         
-        for n = 1:rE %Inner Element loop
+        x2 = subs(xem,[xi,nu],[xi1(Q),xi2(Q)]);
+        y2 = subs(yem,[xi,nu],[xi1(Q),xi2(Q)]);
+        
+        for k = 1:Q %Outer qp loop 2
             
-            CeInn = 0; %Reset variable - Inner set of summations
-            Jn = [nodes(el(1,n),1)-nodes(el(3,n),1) nodes(el(1,n),2)-nodes(el(3,n),2);nodes(el(2,n),1)-nodes(el(3,n),1) nodes(el(2,n),2)-nodes(el(3,n),2) ]; %jacobian
-            
-            for q = 1:Q %Inner qp loop
+            for n = 1:rE %Inner Element loop
                 
-                Nq = [lam(q) xi1(q)  xi2(q)]; %TRI3 shape functions at current integration points
+                CeInn = 0; %Reset variable - Inner set of summations
                 
-                x1 =[ Nq(1)*nodes(el(1,n),1) + Nq(2)*nodes(el(2,n),1) + Nq(3)*nodes(el(3,n),1);... %1st coordinate
-                    Nq(1)*nodes(el(1,n),2) + Nq(2)*nodes(el(2,n),2) + Nq(3)*nodes(el(3,n),2)];
+                for q = 1:Q %Inner qp loop
+                    for l = 1:Q %Inner qp loop 2
+                         xen = nodes(el(:,n),1); %xe corrdinatates for nth element
+                         yen = nodes(el(:,n),2); %ye coordinates for nth element
+                         xn = Nq'*xen; %x(xi,nu) for nth element
+                         yn = Nq'*yen; %x(xi,nu) for nth element
+                         Jn = [diff(xn,xi),diff(yn,xi);...
+                                diff(xn,nu),diff(yn,nu)];%jacobian for nth element
+                                                             
+                        x1 = subs(xen,[xi,nu],[xi1(l),xi2(l)]);
+                        y1 = subs(yen,[xi,nu],[xi1(l),xi2(l)]);
+                               
+                        Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
+                        
+                        CeInn = CeInn + Cs*Nq'*abs(det(Jn))*w(q); %Calculate inner summation 3x3
+                        
+                    end
+                end
                 
-                
-                Cs = standdev^2*exp(-(sqrt((x1(1)-x2(1))^2+(x1(2)-x2(2))^2))/correlation);
-                
-                
-                CeInn = CeInn + Cs*Nq'*abs(det(Jn))*w(q); %Calculate inner summation 3x3
-                
+                %Assemble CeInn Value into global matrix
+                idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
+                CN.C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(subs(Jm,[xi,nu],[xi1(l),xi2(l)])))*w(p); %Put values where nodal DoFs are located
                 
             end
-            
-            %Assemble CeInn Value into global matrix
-            idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
-            C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(Jm))*w(p); %Put values where nodal DoFs are located
-            
-        end        
+        end
+        
+        % Ne = Ne + Np*Np'*det(Jm)*w(p); %Calc N matrix
         
         
-       % Ne = Ne + Np*Np'*det(Jm)*w(p); %Calc N matrix
+        end
         
+        % Nij(idx2,idx2) = Nij(idx2,idx2) + Ne; %Put values where nodal DoFs are located
+        %Integrating about single variable but still to loop about both sets of
+        %elements
+        if rem(m,100)==0
+            clc;
+            fprintf('%1.1f%%\n',m/rE*100)
+        end
         
     end
     
-   % Nij(idx2,idx2) = Nij(idx2,idx2) + Ne; %Put values where nodal DoFs are located
-    %Integrating about single variable but still to loop about both sets of
-    %elements 
-    if rem(m,100)==0
-        clc;
-        fprintf('%1.1f%%\n',m/rE*100)
-    end
+    %% Calc N
     
-end
-
-%% Calc N
-
-for m = 1:rE
-    Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
-
-   % for n = 1:rE
-       % Ne = 0;
+    for m = 1:rE
+        Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
+        
+        % for n = 1:rE
+        % Ne = 0;
         %Jn = [nodes(el(1,n),2)-nodes(el(3,n),2) nodes(el(1,n),2)-nodes(el(3,n),2);nodes(el(2,n),1)-nodes(el(3,n),1) nodes(el(2,n),1)-nodes(el(3,m),1) ]; %jacobian
         Ne = 0;
         for p=1:Q
@@ -124,36 +135,36 @@ for m = 1:rE
         end
         idx = [el(1,m), el(2,m), el(3,m)]; %Assemble over element n
         idx2 = [el(1,m), el(2,m), el(3,m)];
-
-        Nij(idx,idx2) = Nij(idx,idx2) + Ne; %Put values where nodal DoFs are located 
-    %end
-   if rem(m,100)==0
-        clc;
-        fprintf('%1.1f%%\n - N',m/rE*100)
+        
+        Nij(idx,idx2) = Nij(idx,idx2) + Ne; %Put values where nodal DoFs are located
+        %end
+        if rem(m,100)==0
+            clc;
+            fprintf('%1.1f%%\n - N',m/rE*100)
+        end
     end
-end
-
-
-
-spy(Nij)
-figure
-spy(C)
-
-
-%% Create EigenValues
-
-[V,D] = eig(C,Nij); %Takes a long time, so only run when I know above
-%calcs are right
-%D consists of generalized eigenvalues
-%V are the corresponding eigenvectors
-s = sum(D);
-s50 = s(1:50);
-figure
-plot(1:50,s50,'.')
-xlim([1,50])
-%%
-save('EigVal.mat','D');
-save('EigVec.mat','V');
+    
+    
+    
+    spy(Nij)
+    figure
+    spy(C)
+    
+    
+    %% Create EigenValues
+    
+    [V,D] = eig(C,Nij); %Takes a long time, so only run when I know above
+    %calcs are right
+    %D consists of generalized eigenvalues
+    %V are the corresponding eigenvectors
+    s = sum(D);
+    s50 = s(1:50);
+    figure
+    plot(1:50,s50,'.')
+    xlim([1,50])
+    %%
+    save('EigVal.mat','D');
+    save('EigVec.mat','V');
 else
     
     D = load('EigVal.mat');
@@ -165,7 +176,7 @@ end
 %% Use eigenvalues
 % syms x y
 % Create spacial shape functions
-% 
+%
 % for i = 1:rE
 %     x1 = nodes(el(1,i),1);
 %     x2 = nodes(el(2,i),1);
@@ -174,42 +185,42 @@ end
 %     y2 = nodes(el(2,i),2);
 %     y3 = nodes(el(3,i),2);
 %    count = count+1;
-% 
+%
 % %     N(1,i) = (1/(2*A(i)))*(x2*y3-x3*y2+(y2-y3)*x + (x3-x2)*y);
 % %         N(2,i) = (1/(2*A(i)))*(x3*y1-x1*y3+(y3-y1)*x + (x1-x3)*y);
 % %         N(3,i) = (1/(2*A(i)))*(x1*y2-x2*y1+(y1-y2)*x + (x2-x1)*y);
 %      ind1 = el(1,i);
 %      ind2 = el(2,i);
 %      ind3 = el(3,i);
-% 
-% 
+%
+%
 %     A(i) = abs(det([x2-x1 y2-y1;x3-x1 y3-y1])*1/2); % Calculating each element area for later use
 %     for j = 1:3 %Create mult 1/(2Ae) as 1st index in 3D matrix
 %        N(ind1,i,1) = 1/(2*A(i));
 %        N(ind2,i,1) = 1/(2*A(i));
 %        N(ind3,i,1) = 1/(2*A(i));
 %     end
-%     
+%
 %     for j = 1:3 %Create 1st constant value as 2nd value in 3D matrix
 %         N(ind1,i,2) = x2*y3;
 %         N(ind2,i,2) = x3*y1;
 %         N(ind3,i,2) = x1*y2;
 %     end
-%     
+%
 %     for j = 1:3 %Create const mult by x as 3rd value in 3D matrix
 %        N(ind1,i,3) = y2-y3;
 %        N(ind2,i,3) = y3-y1;
 %        N(ind3,i,3) = y1-y2;
 %     end
-%     
+%
 %     for j = 1:3 %Create const mult by y as 4th value in 3D matrix
 %        N(1,i,4) = x3-x2;
 %        N(2,i,4) = x1-x3;
 %        N(3,i,4) = x2-x1;
 %     end
-%     
-%     
-%     
+%
+%
+%
 %     if rem(i,100) == 0
 %         clc;
 %         fprintf('%1.1f%% - Making Spatial Shape Functions',i/rE*100)
@@ -236,20 +247,20 @@ end
 % %use M=50
 % M = 50;
 % Ms = 210;
-% 
-% eig = s50; 
-% 
+%
+% eig = s50;
+%
 % for i = 1:cN
 %        theta = normrnd(100,50);
 %     for k = 1:50
-%      
-% 
+%
+%
 %         s(i) = s(i) + real(sqrt(D(k))*f(k)*theta);
 %     end
-%   
+%
 % end
 % s = real(s);
- 
+
 D2 = sqrt(D(1:50, 1:50));
 V2 = V(:,1:50);
 
@@ -259,7 +270,7 @@ DV = V2*D2*XI;
 f = sum(DV,2)+210e9*ones(cN,1);
 figure
 %contour(nodes(:,1),nodes(:,2),real(s))
-% 
+%
 % xv = min(nodes(:,1)):max(nodes(:,1));
 % yv = min(nodes(:,2)):max(nodes(:,2));
 % %[xv,yv] = meshgrid(nodes(:,1),nodes(:,2));

@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %mm
 standdev = .05; % 5%
-calc = 0;
+calc = 1;
 %% Importing Mesh
 
 fid = fopen('quarter.msh');
@@ -13,11 +13,11 @@ hdrRows = 13;
 hdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
 matData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
 hdrData2 = textscan(fid,'%s', 1201, 'Delimiter','\n');
-matData2 = textscan(fid,'%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
+matData2 = textscan(fid,'%f%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
 
 fclose(fid);
 nodes = matData{1}(:,2:3);
-el = matData2{1}(:,6:8)';
+el = matData2{1}(:,6:end)';
 
 
 
@@ -42,9 +42,11 @@ xi1 = [1/sqrt(3); -1/sqrt(3)]; %Integration points
 xi2 = [1/sqrt(3); -1/sqrt(3)];
 w = [1; 1]; %Weighting
 lam = 1-xi1-xi2; %phi1 prewritten to save space
-C = zeros(cN,cN);
-
-Nij = zeros(cN,cN);
+%save C.mat zeros(cN,cN);
+C = [];
+N = [];
+save CN.mat C N
+CN = matfile('CN.mat','Writable',true);
 
 Q = 2;
 syms x y xi nu
@@ -56,15 +58,18 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
     for m = 1:rE %Outer element loop
         CeOuter = 0; %Reset variable - Outer set of summations\
         
-       
+        xem = nodes(el(:,m),1); %xe corrdinatates for mth element
+        yem = nodes(el(:,m),2); %ye coordinates for mth element
         idx2 = [el(1,m), el(2,m), el(3,m)];
         %Ne = 0;
         
         for p = 1:Q %Outer qp loop 1
             
                 
-        x2 = [ Np(1)*nodes(el(1,m),1) + Np(2)*nodes(el(2,m),1) + Np(3)*nodes(el(3,m),1);... %2nd coordinate
-            Np(1)*nodes(el(1,m),2) + Np(2)*nodes(el(2,m),2) + Np(3)*nodes(el(3,m),2)];
+        
+        x2 = subs(xem,[xi,nu],[xi1(Q),xi2(Q)]);
+        y2 = subs(yem,[xi,nu],[xi1(Q),xi2(Q)]);
+        
         for k = 1:Q %Outer qp loop 2
             
             for n = 1:rE %Inner Element loop
@@ -73,22 +78,17 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
                 
                 for q = 1:Q %Inner qp loop
                     for l = 1:Q %Inner qp loop 2
-                         xen = nodes(el(:,m),1); %xe corrdinatates for nth element
-                         yen = nodes(el(:,m),2); %ye coordinates for nth element
-                         xn = N*xen; %x(xi,nu) for nth element
-                         yn = N*yen; %x(xi,nu) for nth element
+                         xen = nodes(el(:,n),1); %xe corrdinatates for nth element
+                         yen = nodes(el(:,n),2); %ye coordinates for nth element
+                         xn = Nq'*xen; %x(xi,nu) for nth element
+                         yn = Nq'*yen; %y(xi,nu) for nth element
                          Jn = [diff(xn,xi),diff(yn,xi);...
                                 diff(xn,nu),diff(yn,nu)];%jacobian for nth element
-                         
-                      
-                      
-                       
-                        
-                        x1 = subs(xen,
-                        
-                        
-                        Cs = standdev^2*exp(-(sqrt((x1(1)-x2(1))^2+(x1(2)-x2(2))^2))/correlation);
-                        
+                                                             
+                        x1 = subs(xen,[xi,nu],[xi1(l),xi2(l)]);
+                        y1 = subs(yen,[xi,nu],[xi1(l),xi2(l)]);
+                               
+                        Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         
                         CeInn = CeInn + Cs*Nq'*abs(det(Jn))*w(q); %Calculate inner summation 3x3
                         
@@ -97,7 +97,7 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
                 
                 %Assemble CeInn Value into global matrix
                 idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
-                C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(Jm))*w(p); %Put values where nodal DoFs are located
+                CN.C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(subs(Jm,[xi,nu],[xi1(l),xi2(l)])))*w(p); %Put values where nodal DoFs are located
                 
             end
         end
