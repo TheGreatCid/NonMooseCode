@@ -2,7 +2,7 @@
 %David Torres
 clc;clear;close all;
 %% Common Values
-correlation = .020; %mm
+correlation = .020; %m
 standdev = .05; % 5%
 calc = 1;
 %% Importing Mesh
@@ -42,11 +42,24 @@ xi1 = [1/sqrt(3); -1/sqrt(3)]; %Integration points
 xi2 = [1/sqrt(3); -1/sqrt(3)];
 w = [1; 1]; %Weighting
 lam = 1-xi1-xi2; %phi1 prewritten to save space
-%save C.mat zeros(cN,cN);
-C = [];
-N = [];
-save CN.mat C N
-CN = matfile('CN.mat','Writable',true);
+%save C.mat
+%D = zeros(cN,cN);
+% C = [];
+% N = [];
+% save CN.mat C N -v7.3
+% CN = matfile('CN.mat','Writable',true);
+% for i = 1:cN
+%     for j = 1:cN
+%         CN.C(i,j) = 0;
+%         CN.N(i,j) = 0;
+%     end
+%     clc;
+%     if rem(i,cN) == 0
+%      fprintf('Pre allocating arrays - %1.1f\n', (i/cN)*100)
+%     end
+% end
+
+
 
 Q = 2;
 syms x y xi nu
@@ -62,13 +75,18 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         yem = nodes(el(:,m),2); %ye coordinates for mth element
         idx2 = [el(1,m), el(2,m), el(3,m)];
         %Ne = 0;
+         xm = Nq'*xem; %x(xi,nu) for nth element
+         ym = Nq'*yem; %y(xi,nu) for nth element
+        Jm = [diff(xm,xi),diff(ym,xi);...
+             diff(xm,nu),diff(ym,nu)];%jacobian for mth element
+        
         
         for p = 1:Q %Outer qp loop 1
             
                 
         
-        x2 = subs(xem,[xi,nu],[xi1(Q),xi2(Q)]);
-        y2 = subs(yem,[xi,nu],[xi1(Q),xi2(Q)]);
+        x2 = subs(xm,[xi,nu],[xi1(Q),xi2(Q)]);
+        y2 = subs(ym,[xi,nu],[xi1(Q),xi2(Q)]);
         
         for k = 1:Q %Outer qp loop 2
             
@@ -85,8 +103,8 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
                          Jn = [diff(xn,xi),diff(yn,xi);...
                                 diff(xn,nu),diff(yn,nu)];%jacobian for nth element
                                                              
-                        x1 = subs(xen,[xi,nu],[xi1(l),xi2(l)]);
-                        y1 = subs(yen,[xi,nu],[xi1(l),xi2(l)]);
+                        x1 = subs(xn,[xi,nu],[xi1(l),xi2(l)]);
+                        y1 = subs(yn,[xi,nu],[xi1(l),xi2(l)]);
                                
                         Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         

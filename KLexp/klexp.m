@@ -2,10 +2,9 @@
 %David Torres
 clc;clear;close all;
 %% Common Values
-correlation = .020; %m
+correlation = .020; %mm
 standdev = .05; % 5%
-
-syms x y;
+calc = 1;
 %% Importing Mesh
 
 fid = fopen('thickwall.msh');
@@ -20,7 +19,6 @@ fclose(fid);
 nodes = matData{1}(:,2:3);
 el = matData2{1}(:,6:8)';
 
-%% Create Connectivity matrix
 
 
 %% Create Shape Functions
@@ -49,9 +47,11 @@ C = zeros(cN,cN);
 Nij = zeros(cN,cN);
 
 Q = 3;
+if calc == 1
 for m = 1:rE %Outer element loop
     CeOuter = 0; %Reset variable - Outer set of summations\
-    Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
+    Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);...
+        nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
     idx2 = [el(1,m), el(2,m), el(3,m)];
     %Ne = 0;
 
@@ -79,14 +79,14 @@ for m = 1:rE %Outer element loop
                 Cs = standdev^2*exp(-(sqrt((x1(1)-x2(1))^2+(x1(2)-x2(2))^2))/correlation);
                 
                 
-                CeInn = CeInn + Cs*Nq*det(Jn)*w(q); %Calculate inner summation 3x3
+                CeInn = CeInn + Cs*Nq'*abs(det(Jn))*w(q); %Calculate inner summation 3x3
                 
                 
             end
             
             %Assemble CeInn Value into global matrix
             idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
-            C(idx,idx2) = C(idx,idx2) + CeInn*Np'*det(Jm)*w(p); %Put values where nodal DoFs are located
+            C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(Jm))*w(p); %Put values where nodal DoFs are located
             
         end        
         
@@ -119,7 +119,7 @@ for m = 1:rE
             
             Np = [lam(p) xi1(p) xi2(p)];
             
-            Ne = Ne + Np*Np'*det(Jm)*w(p);
+            Ne = Ne + Np'*Np*abs(det(Jm))*w(p);
             
         end
         idx = [el(1,m), el(2,m), el(3,m)]; %Assemble over element n
@@ -151,6 +151,16 @@ s50 = s(1:50);
 figure
 plot(1:50,s50,'.')
 xlim([1,50])
+%%
+save('EigVal.mat','D');
+save('EigVec.mat','V');
+else
+    
+    D = load('EigVal.mat');
+    V = load('EigVec.mat');
+    D = D.D;
+    V = V.V;
+end
 
 %% Use eigenvalues
 % syms x y
@@ -211,38 +221,42 @@ xlim([1,50])
 
 
 %don't spatial shape function equal 1 at nodes?
-Npara(:,:,1) = [1 0 0]; %consts
-Npara(:,:,2) = [-1 1 0]; %xi1
-Npara(:,:,3) = [-1 0 1]; %xi2
-f = zeros(1,cN);
-for k = 1:cN
-    for j = 1:cN
-        for i = 1:3
-            %ind = find(el==j)
-            f(:,k) = f(i,k) + real(V(j,k))*Npara(:,:,i)'; %not sure if this is right
-        end
-    end
-end
-%S(x,theta)
-%normrnd(mu,sigma)
-%use M=50
-M = 50;
-Ms = 210;
 
-eig = s50; 
-
-for i = 1:cN
-       theta = normrnd(100,50);
-    for k = 1:50
-     
-
-        s(i) = s(i) + real(sqrt(D(k))*f(k)*theta);
-    end
-  
-end
-s = real(s);
+% f = zeros(1,cN);
+% for k = 1:cN
+%     for j = 1:cN
+%         for i = 1:3
+%             %ind = find(el==j)
+%             f(k) = f(k) + V(j,k);
+%         end
+%     end
+% end
+% %S(x,theta)
+% %normrnd(mu,sigma)
+% %use M=50
+% M = 50;
+% Ms = 210;
+% 
+% eig = s50; 
+% 
+% for i = 1:cN
+%        theta = normrnd(100,50);
+%     for k = 1:50
+%      
+% 
+%         s(i) = s(i) + real(sqrt(D(k))*f(k)*theta);
+%     end
+%   
+% end
+% s = real(s);
  
+D2 = sqrt(D(1:50, 1:50));
+V2 = V(:,1:50);
 
+xi = normrnd(zeros(1,50),standdev*100)*210e9;
+XI = diag(xi);
+DV = V2*D2*XI;
+f = sum(DV,2)+210e9*ones(cN,1);
 figure
 %contour(nodes(:,1),nodes(:,2),real(s))
 % 
@@ -258,8 +272,9 @@ figure
 dt = delaunayTriangulation(nodes(:,1),nodes(:,2));
 tri = dt.ConnectivityList;
 figure
-trisurf(tri,nodes(:,1),nodes(:,2),s)
-
+%trisurf(tri,nodes(:,1),nodes(:,2),f)
+trisurf(tri,nodes(:,1),nodes(:,2),f)
+colorbar
 
 
 
