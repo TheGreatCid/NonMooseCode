@@ -12,7 +12,7 @@ fid = fopen('thickwall.msh');
 hdrRows = 11;
 hdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
 matData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
-hdrData2 = textscan(fid,'%s', 201, 'Delimiter','\n');
+hdrData2 = textscan(fid,'%s', 121, 'Delimiter','\n');
 matData2 = textscan(fid,'%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
 
 fclose(fid);

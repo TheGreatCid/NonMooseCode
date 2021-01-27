@@ -7,12 +7,12 @@ standdev = .05; % 5%
 calc = 1;
 %% Importing Mesh
 
-fid = fopen('quarter.msh');
+fid = fopen('KLquarter.msh');
 
 hdrRows = 13;
 hdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
 matData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
-hdrData2 = textscan(fid,'%s', 1201, 'Delimiter','\n');
+hdrData2 = textscan(fid,'%s', 123, 'Delimiter','\n');
 matData2 = textscan(fid,'%f%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
 
 fclose(fid);
@@ -44,8 +44,8 @@ w = [1; 1]; %Weighting
 lam = 1-xi1-xi2; %phi1 prewritten to save space
 %save C.mat
 %D = zeros(cN,cN);
-% C = [];
-% N = [];
+C = zeros(cN,cN);
+Nij = zeros(cN,cN);
 % save CN.mat C N -v7.3
 % CN = matfile('CN.mat','Writable',true);
 % for i = 1:cN
@@ -85,11 +85,11 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
             
                 
         
-        x2 = subs(xm,[xi,nu],[xi1(Q),xi2(Q)]);
-        y2 = subs(ym,[xi,nu],[xi1(Q),xi2(Q)]);
+        
         
         for k = 1:Q %Outer qp loop 2
-            
+            x2 = subs(xm,[xi,nu],[xi1(p),xi2(k)]);
+            y2 = subs(ym,[xi,nu],[xi1(p),xi2(k)]);
             for n = 1:rE %Inner Element loop
                 
                 CeInn = 0; %Reset variable - Inner set of summations
@@ -103,19 +103,19 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
                          Jn = [diff(xn,xi),diff(yn,xi);...
                                 diff(xn,nu),diff(yn,nu)];%jacobian for nth element
                                                              
-                        x1 = subs(xn,[xi,nu],[xi1(l),xi2(l)]);
-                        y1 = subs(yn,[xi,nu],[xi1(l),xi2(l)]);
+                        x1 = subs(xn,[xi,nu],[xi1(q),xi2(l)]);
+                        y1 = subs(yn,[xi,nu],[xi1(q),xi2(l)]);
                                
                         Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         
-                        CeInn = CeInn + Cs*Nq'*abs(det(Jn))*w(q); %Calculate inner summation 3x3
+                        CeInn = CeInn + Cs*subs(Nq',[xi,nu],[xi1(q),xi2(l)])*abs(det(Jn))*w(q); %Calculate inner summation 3x3
                         
                     end
                 end
                 
                 %Assemble CeInn Value into global matrix
                 idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
-                CN.C(idx,idx2) = C(idx,idx2) + CeInn*Np*abs(det(subs(Jm,[xi,nu],[xi1(l),xi2(l)])))*w(p); %Put values where nodal DoFs are located
+                C(idx,idx2) = C(idx,idx2) + CeInn'*(subs(Nq,[xi,nu],[xi1(p),xi2(k)])*abs(det(subs(Jm,[xi,nu],[xi1(p),xi2(k)])))*w(k))'; %Put values where nodal DoFs are located
                 
             end
         end
