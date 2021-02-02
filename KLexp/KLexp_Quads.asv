@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = .05; % 5%
-calc = 1;
+calc = 0;
 %% Importing Mesh
 
 fid = fopen('KLquarter.msh');
@@ -96,14 +96,14 @@ if calc == 1
                         y2 = yen(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + yen(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + yen(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + yen(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
                         Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         
-                        CeInn = CeInn + Cs*Nql*abs(det(Jn)*w(q)); %Calculate inner summation 3x3
+                        CeInn = CeInn + Cs*Nql*abs(det(Jn))*w(q)*w(l); %Calculate inner summation 3x3
                         
                     end
                 end
                 
                 %Assemble CeInn Value into global matrix
                 idx = [el(1,n), el(2,n), el(3,n) el(3,n)]; %Assemble over element n
-                C(idx,idx2) = C(idx,idx2) + CeInn'*Npk*(det(Jm)*w(k))'; %Put values where nodal DoFs are located
+                C(idx,idx2) = C(idx,idx2) + CeInn'*Npk*abs(det(Jm))*w(p)*w(k)'; %Put values where nodal DoFs are located
            
             end
         end
@@ -126,21 +126,26 @@ if calc == 1
     %% Calc N
     
     for m = 1:rE
-        Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
+        x1 = xem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + xem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + xem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + xem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+        y1 = yem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + yem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + yem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + yem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+        G = [xi2(k)-1 1-xi2(k) xi2(k)+1 -xi1(k)-1;...
+             xi1(p)-1 -xi1(p)-1 xi1(p)+1 1-xi1(p)]; %gradient of shape functions
+        Jm = G*[xem,yem]; %Jacobian
         
         % for n = 1:rE
         % Ne = 0;
         %Jn = [nodes(el(1,n),2)-nodes(el(3,n),2) nodes(el(1,n),2)-nodes(el(3,n),2);nodes(el(2,n),1)-nodes(el(3,n),1) nodes(el(2,n),1)-nodes(el(3,m),1) ]; %jacobian
         Ne = 0;
         for p=1:Q
+            for k = 1:k
             
-            Np = [lam(p) xi1(p) xi2(p)];
+               Npk = [(1/4)*(1-xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1+xi2(k)),(1/4)*(1-xi1(p))*(1+xi2(k))];
             
-            Ne = Ne + Np'*Np*abs(det(Jm))*w(p);
-            
+             Ne = Ne + Npk'*Npk*abs(det(Jm))*w(p)*w(k);
+            end
         end
-        idx = [el(1,m), el(2,m), el(3,m)]; %Assemble over element n
-        idx2 = [el(1,m), el(2,m), el(3,m)];
+        idx = [el(1,m), el(2,m), el(3,m), el(4,m)]; %Assemble over element n
+        idx2 = [el(1,m), el(2,m), el(3,m), el(4,m)];
         
         Nij(idx,idx2) = Nij(idx,idx2) + Ne; %Put values where nodal DoFs are located
         %end
@@ -173,8 +178,8 @@ if calc == 1
     save('EigVecQuart.mat','V');
 else
     
-    D = load('EigVal.mat');
-    V = load('EigVec.mat');
+    D = load('EigValQuart.mat');
+    V = load('EigVecQuart.mat');
     D = D.D;
     V = V.V;
 end
@@ -290,8 +295,44 @@ dt = delaunayTriangulation(nodes(:,1),nodes(:,2));
 tri = dt.ConnectivityList;
 figure
 %trisurf(tri,nodes(:,1),nodes(:,2),f)
-trisurf(tri,nodes(:,1),nodes(:,2),V(:,15))
+trisurf(tri,nodes(:,1),nodes(:,2),real(f))
 colorbar
+
+
+%% Get values from FE mesh
+fid = fopen('quarter.msh');
+
+hdrRows = 13;
+FEhdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
+FEmatData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
+FEhdrData2 = textscan(fid,'%s', 1198, 'Delimiter','\n');
+FEmatData2 = textscan(fid,'%f%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
+
+fclose(fid);
+FEnodes = matData{1}(:,2:3);
+FEel = matData2{1}(:,6:end)';
+
+[FEcN, FErN] = size(FEnodes);
+[FEcE,FErE] = size(FEel);
+
+%% Transfer values to FE mesh
+
+C_FE = zeros(FEcN);
+xis(1,:) = [0,0,0,0];
+xis(2,:) = [0,0,0,0];
+fun = @sums;
+for m = 1:FErE
+   
+    
+    idx = [el(1,m), el(2,m), el(3,m), el(4,m)];
+    %F(:,:) = sums(xis,m,FEel,el,nodes,FEnodes);
+    xis = fsolve(fun,[0,0,0,0;0,0,0,0]);
+    C_FE(idx,idx) = C_FE(idx,idx) + [F(1),F(2)];
+    
+    
+end
+
+
 
 
 
