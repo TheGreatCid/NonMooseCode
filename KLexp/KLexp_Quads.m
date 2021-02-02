@@ -322,13 +322,13 @@ C_FE = zeros(FEcN);
 %xis(2,:) = [0,0,0,0];
 m = 1;
 fun = @(x)sums(x(1,:),x(2,:),m,FEel,el,nodes,FEnodes);
-for m = 1:FErE
+for j = 1:FErE
    
     
-    idx = [el(1,m), el(2,m), el(3,m), el(4,m)];
+    idx = [el(1,j), el(2,j), el(3,j), el(4,j)];
     %F(:,:) = sums(xis,m,FEel,el,nodes,FEnodes);
     xis = fsolve(fun,[0,0,0,0;0,0,0,0]);
-    C_FE(idx,idx) = C_FE(idx,idx) + [xis(1,:),xis(2,:)];
+    nodepara(m,:) = [xis(1,:);xis(2,:)];
     
     
 end
