@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = .05; % 5%
-calc = 1;
+calc = 0;
 %% Importing Mesh
 
 fid = fopen('KLquarter.msh');
@@ -46,28 +46,11 @@ lam = 1-xi1-xi2; %phi1 prewritten to save space
 %D = zeros(cN,cN);
 C = zeros(cN,cN);
 Nij = zeros(cN,cN);
-% save CN.mat C N -v7.3
-% CN = matfile('CN.mat','Writable',true);
-% for i = 1:cN
-%     for j = 1:cN
-%         CN.C(i,j) = 0;
-%         CN.N(i,j) = 0;
-%     end
-%     clc;
-%     if rem(i,cN) == 0
-%      fprintf('Pre allocating arrays - %1.1f\n', (i/cN)*100)
-%     end
-% end
-
-
-
 Q = 2;
-syms x y xi nu
 if calc == 1
-Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
-     (1/4)*(1+1*xi)*(1-1*nu);...
-     (1/4)*(1+1*xi)*(1+1*nu);...
-     (1/4)*(1-1*xi)*(1+1*nu)]; %Parametric shape functions
+
+  
+ %Parametric shape functions
     for m = 1:rE %Outer element loop
         CeOuter = 0; %Reset variable - Outer set of summations\
         
@@ -75,10 +58,8 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         yem = nodes(el(:,m),2); %ye coordinates for mth element
         idx2 = [el(1,m), el(2,m), el(3,m) el(4,m)];
         %Ne = 0;
-         xm = Nq'*xem; %x(xi,nu) for nth element
-         ym = Nq'*yem; %y(xi,nu) for nth element
-        Jm = [diff(xm,xi),diff(ym,xi);...
-             diff(xm,nu),diff(ym,nu)];%jacobian for mth element
+        
+        
         
         
         for p = 1:Q %Outer qp loop 1
@@ -88,36 +69,42 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         
         
         for k = 1:Q %Outer qp loop 2
-            x2 = subs(xm,[xi,nu],[xi1(p),xi2(k)]);
-            y2 = subs(ym,[xi,nu],[xi1(p),xi2(k)]);
+            x1 = xem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + xem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + xem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + xem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+            y1 = yem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + yem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + yem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + yem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+            G = [xi2(k)-1 1-xi2(k) xi2(k)+1 -xi1(k)-1;...
+                xi1(p)-1 -xi1(p)-1 xi1(p)+1 1-xi1(p)]; %gradient of shape functions
+            Jm = G*[xem,yem]; %Jacobian
+            Npk = [(1/4)*(1-xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1+xi2(k)),(1/4)*(1-xi1(p))*(1+xi2(k))];
+            
+          
             
             for n = 1:rE %Inner Element loop
-            tic    
+        
                 CeInn = 0; %Reset variable - Inner set of summations
                 
                 for q = 1:Q %Inner qp loop
-                    for l = 1:Q %Inner qp loop 2
+                    for l = 1:Q %Inner qp loop 
+                       Nql  = [(1/4)*(1-xi1(q))*(1-xi2(l)),(1/4)*(1+xi1(q))*(1-xi2(l)),(1/4)*(1+xi1(q))*(1+xi2(l)),(1/4)*(1-xi1(q))*(1+xi2(l))];
                          xen = nodes(el(:,n),1); %xe corrdinatates for nth element
                          yen = nodes(el(:,n),2); %ye coordinates for nth element
-                         xn = Nq'*xen; %x(xi,nu) for nth element
-                         yn = Nq'*yen; %y(xi,nu) for nth element
-                         Jn = [diff(xn,xi),diff(yn,xi);...
-                                diff(xn,nu),diff(yn,nu)];%jacobian for nth element
-                                                             
-                        x1 = subs(xn,[xi,nu],[xi1(q),xi2(l)]);
-                        y1 = subs(yn,[xi,nu],[xi1(q),xi2(l)]);
-                               
+                         
+                        G = [xi2(l)-1 1-xi2(l) xi2(l)+1 -xi1(l)-1;...
+                                 xi1(q)-1 -xi1(q)-1 xi1(q)+1 1-xi1(q)];
+                        Jn = G*[xen,yen];
+                                     
+                        x2 = xen(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + xen(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + xen(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + xen(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+                        y2 = yen(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + yen(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + yen(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + yen(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
                         Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         
-                        CeInn = CeInn + double(Cs*subs(Nq',[xi,nu],[xi1(q),xi2(l)])*abs(det(subs(Jn,[xi,nu],[xi1(p),xi2(k)])))*w(q)); %Calculate inner summation 3x3
+                        CeInn = CeInn + Cs*Nql*abs(det(Jn))*w(q)*w(l); %Calculate inner summation 3x3
                         
                     end
                 end
                 
                 %Assemble CeInn Value into global matrix
                 idx = [el(1,n), el(2,n), el(3,n) el(3,n)]; %Assemble over element n
-                C(idx,idx2) = C(idx,idx2) + double(CeInn'*(subs(Nq,[xi,nu],[xi1(p),xi2(k)])*abs(det(subs(Jm,[xi,nu],[xi1(p),xi2(k)])))*w(k))'); %Put values where nodal DoFs are located
-             toc
+                C(idx,idx2) = C(idx,idx2) + CeInn'*Npk*abs(det(Jm))*w(p)*w(k)'; %Put values where nodal DoFs are located
+           
             end
         end
         
@@ -139,21 +126,26 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
     %% Calc N
     
     for m = 1:rE
-        Jm = [nodes(el(1,m),1)-nodes(el(3,m),1) nodes(el(1,m),2)-nodes(el(3,m),2);nodes(el(2,m),1)-nodes(el(3,m),1) nodes(el(2,m),2)-nodes(el(3,m),2) ]; %jacobian
+        x1 = xem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + xem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + xem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + xem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+        y1 = yem(1)*(1/4)*(1-xi1(p))*(1-xi2(k)) + yem(2)*(1/4)*(1+xi1(p))*(1-xi2(k)) + yem(3)*(1/4)*(1+xi1(p))*(1+xi2(k)) + yem(4)*(1/4)*(1-xi1(p))*(1+xi2(k));
+        G = [xi2(k)-1 1-xi2(k) xi2(k)+1 -xi1(k)-1;...
+             xi1(p)-1 -xi1(p)-1 xi1(p)+1 1-xi1(p)]; %gradient of shape functions
+        Jm = G*[xem,yem]; %Jacobian
         
         % for n = 1:rE
         % Ne = 0;
         %Jn = [nodes(el(1,n),2)-nodes(el(3,n),2) nodes(el(1,n),2)-nodes(el(3,n),2);nodes(el(2,n),1)-nodes(el(3,n),1) nodes(el(2,n),1)-nodes(el(3,m),1) ]; %jacobian
         Ne = 0;
         for p=1:Q
+            for k = 1:k
             
-            Np = [lam(p) xi1(p) xi2(p)];
+               Npk = [(1/4)*(1-xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1-xi2(k)),(1/4)*(1+xi1(p))*(1+xi2(k)),(1/4)*(1-xi1(p))*(1+xi2(k))];
             
-            Ne = Ne + Np'*Np*abs(det(Jm))*w(p);
-            
+             Ne = Ne + Npk'*Npk*abs(det(Jm))*w(p)*w(k);
+            end
         end
-        idx = [el(1,m), el(2,m), el(3,m)]; %Assemble over element n
-        idx2 = [el(1,m), el(2,m), el(3,m)];
+        idx = [el(1,m), el(2,m), el(3,m), el(4,m)]; %Assemble over element n
+        idx2 = [el(1,m), el(2,m), el(3,m), el(4,m)];
         
         Nij(idx,idx2) = Nij(idx,idx2) + Ne; %Put values where nodal DoFs are located
         %end
@@ -182,12 +174,12 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
     plot(1:50,s50,'.')
     xlim([1,50])
     %%
-    save('EigVal.mat','D');
-    save('EigVec.mat','V');
+    save('EigValQuart.mat','D');
+    save('EigVecQuart.mat','V');
 else
     
-    D = load('EigVal.mat');
-    V = load('EigVec.mat');
+    D = load('EigValQuart.mat');
+    V = load('EigVecQuart.mat');
     D = D.D;
     V = V.V;
 end
@@ -303,7 +295,7 @@ dt = delaunayTriangulation(nodes(:,1),nodes(:,2));
 tri = dt.ConnectivityList;
 figure
 %trisurf(tri,nodes(:,1),nodes(:,2),f)
-trisurf(tri,nodes(:,1),nodes(:,2),V(:,15))
+trisurf(tri,nodes(:,1),nodes(:,2),real(f))
 colorbar
 
 
