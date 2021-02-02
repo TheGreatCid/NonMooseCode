@@ -73,7 +73,7 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         
         xem = nodes(el(:,m),1); %xe corrdinatates for mth element
         yem = nodes(el(:,m),2); %ye coordinates for mth element
-        idx2 = [el(1,m), el(2,m), el(3,m)];
+        idx2 = [el(1,m), el(2,m), el(3,m) el(4,m)];
         %Ne = 0;
          xm = Nq'*xem; %x(xi,nu) for nth element
          ym = Nq'*yem; %y(xi,nu) for nth element
@@ -82,16 +82,17 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         
         
         for p = 1:Q %Outer qp loop 1
-            
-                
+           
+               
         
         
         
         for k = 1:Q %Outer qp loop 2
             x2 = subs(xm,[xi,nu],[xi1(p),xi2(k)]);
             y2 = subs(ym,[xi,nu],[xi1(p),xi2(k)]);
+            
             for n = 1:rE %Inner Element loop
-                
+            tic    
                 CeInn = 0; %Reset variable - Inner set of summations
                 
                 for q = 1:Q %Inner qp loop
@@ -108,15 +109,15 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
                                
                         Cs = standdev^2*exp(-(sqrt((x1-x2)^2+(y1-y2)^2))/correlation);
                         
-                        CeInn = CeInn + Cs*subs(Nq',[xi,nu],[xi1(q),xi2(l)])*abs(det(Jn))*w(q); %Calculate inner summation 3x3
+                        CeInn = CeInn + double(Cs*subs(Nq',[xi,nu],[xi1(q),xi2(l)])*abs(det(subs(Jn,[xi,nu],[xi1(p),xi2(k)])))*w(q)); %Calculate inner summation 3x3
                         
                     end
                 end
                 
                 %Assemble CeInn Value into global matrix
-                idx = [el(1,n), el(2,n), el(3,n)]; %Assemble over element n
-                C(idx,idx2) = C(idx,idx2) + CeInn'*(subs(Nq,[xi,nu],[xi1(p),xi2(k)])*abs(det(subs(Jm,[xi,nu],[xi1(p),xi2(k)])))*w(k))'; %Put values where nodal DoFs are located
-                
+                idx = [el(1,n), el(2,n), el(3,n) el(3,n)]; %Assemble over element n
+                C(idx,idx2) = C(idx,idx2) + double(CeInn'*(subs(Nq,[xi,nu],[xi1(p),xi2(k)])*abs(det(subs(Jm,[xi,nu],[xi1(p),xi2(k)])))*w(k))'); %Put values where nodal DoFs are located
+             toc
             end
         end
         
@@ -128,7 +129,7 @@ Nq = [(1/4)*(1-1*xi)*(1-1*nu);...
         % Nij(idx2,idx2) = Nij(idx2,idx2) + Ne; %Put values where nodal DoFs are located
         %Integrating about single variable but still to loop about both sets of
         %elements
-        if rem(m,100)==0
+        if rem(m,10)==0
             clc;
             fprintf('%1.1f%%\n',m/rE*100)
         end
