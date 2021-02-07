@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = .05; % 5%
-calc = 1;
+calc = 0;
 %% Importing Mesh
 
 fid = fopen('KLquarter.msh');
@@ -157,27 +157,21 @@ else
 end
 
 %%
-[D,idx] = sort(diag(D));
+[D,idx] = sort(diag(D),'descend');
 
 D2 = sqrt(D(1:50)); %squrt of first 50 eigen values
 
 V2 = V(:,idx); %First 50 eigenvectors
 V2 = V2(1:50);
 
-xi = randn(50,1);
-DV = V2*(D2.*xi); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
-f = sum(DV,2)+210e9*ones(NumNodes,1); %Sum of DV plus distribution average
-figure
-%contour(nodes(:,1),nodes(:,2),real(s))
-%
-% xv = min(nodes(:,1)):max(nodes(:,1));
-% yv = min(nodes(:,2)):max(nodes(:,2));
-% %[xv,yv] = meshgrid(nodes(:,1),nodes(:,2));
-% [X,Y] = ndgrid(xv(1,:),yv(1,:));
-% Z = griddata(nodes(:,1),nodes(:,2),real(s),X,Y);
-% figure
-% contour(X,Y,Z,100)
-%% Contour
+xi = randn(1,50);
+Xi = V2*(D2.*xi); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
+%normcdf
+%conver to gamme dist, gampdf
+E = 210e9; %Mean young's modulus
+Phi = normcdf(Xi); %Calc phi
+P = gampdf(Phi,E, standdev).^-1; %Calc phi
+%% Contour;
 
 dt = delaunayTriangulation(nodes(:,1),nodes(:,2));
 tri = dt.ConnectivityList;
@@ -185,8 +179,11 @@ figure
 %trisurf(tri,nodes(:,1),nodes(:,2),f)
 %trisurf(tri,nodes(:,1),nodes(:,2),real(f))
 colorbar
-for i = 1:NumEl
-    patch(nodes(el(:,i),1),nodes(el(:,i),2), f(el(:,i)));
+for m = 1:NumEl
+    idxm = el(:,m);
+    xm = nodes(idxm,:);
+    patch(xm(1,:)',xm(2,:)',f(idxm));
+    hold on
 end
 %% Get values from FE mesh
 fid = fopen('quarter.msh');

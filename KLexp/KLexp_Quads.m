@@ -3,8 +3,8 @@
 clc;clear;close all;
 %% Common Values
 correlation = .020; %m
-standdev = .05; % 5%
-calc = 1;
+standdev = 1; % 5%
+calc = 0;
 %% Importing Mesh
 
 fid = fopen('KLquarter.msh');
@@ -162,14 +162,20 @@ end
 D2 = sqrt(D(1:50)); %squrt of first 50 eigen values
 
 V2 = V(:,idx); %First 50 eigenvectors
-V2 = V2(1:50);
+V2 = V2(:,1:50);
 
-xi = randn(50,1);
-f = V2*(D2.*xi); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
-%f = sum(DV,2)+210e9*ones(NumNodes,1); %Sum of DV plus distribution average
+eta = randn(50,1);
+Xi = V2*(D2.*eta); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
 %normcdf
 %conver to gamme dist, gampdf
-%% Contour
+E = 210e9; %Mean young's modulus
+
+A = (E^2+standdev*2)/standdev;
+B = E*(A-1);
+
+Phi = normcdf(Xi); %Calc phi
+P = gaminv(Phi,A,B); %Calc p
+%% Contour;
 
 dt = delaunayTriangulation(nodes(:,1),nodes(:,2));
 tri = dt.ConnectivityList;
@@ -180,9 +186,19 @@ colorbar
 for m = 1:NumEl
     idxm = el(:,m);
     xm = nodes(idxm,:);
-    patch(xm(1,:)',xm(2,:)',f(idxm));
+    patch(xm(:,1)',xm(:,2)',Xi(idxm));
     hold on
 end
+title('Patch')
+figure
+for m = 1:NumEl
+    idxm = el(:,m);
+    xm = nodes(idxm,:);
+    patch(xm(:,1)',xm(:,2)',P(idxm));
+    hold on
+end
+colorbar
+title('Patch')
 %% Get values from FE mesh
 fid = fopen('quarter.msh');
 
