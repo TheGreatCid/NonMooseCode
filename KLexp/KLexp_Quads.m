@@ -168,10 +168,14 @@ eta = randn(50,1);
 Xi = V2*(D2.*eta); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
 %normcdf
 %conver to gamme dist, gampdf
-E = 210e9; %Mean young's modulus
+sigma2 = .05^2;
+E = 210; %Mean young's modulus
 
-A = (E^2+standdev*2)/standdev;
-B = E*(A-1);
+%A = E/(sigma^2)+2;
+%B = (E^3/sigma^2)+E; 
+
+B = (E^3)/sigma2+E;
+A = B/E+1;
 
 Phi = normcdf(Xi); %Calc phi
 P = gaminv(Phi,A,B); %Calc p
