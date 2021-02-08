@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = 1; % 5%
-calc = 1;
+calc = 0;
 %% Importing MeshgradShape
 
 fid = fopen('KLquarter.msh');
@@ -173,6 +173,7 @@ for n = 1:1000
 eta = randn(50,1);
 Xi = V2*(D2.*eta); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
 hm(n) = var(Xi);
+XiBig = X
 end
 plot(hm)
 hold on

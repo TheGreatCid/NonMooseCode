@@ -4,7 +4,7 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = 1; % 5%
-calc = 1;
+calc = 0;
 %% Importing MeshgradShape
 
 fid = fopen('KLquarter.msh');
@@ -166,27 +166,29 @@ D2 = sqrt(D(1:50)); %squrt of first 50 eigen values
 
 %V2 = V(:,idx); %Sorting V
 V2 = V(:,idx);
-%V2 = V2(:,1:50);
 V2 = V2(:,1:50);
-for n = 1:1000
+%V2 = V2(:,1:961);
+figure
+XiBig = [];
+%for n = 1:1000
 eta = randn(50,1);
 Xi = V2*(D2.*eta); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
-hm(n) = var(Xi);
-end
-plot(hm)
-hold on
-xlabel('Iteration Number')
-ylabel('Xi Variation')
+%hm(n) = var(Xi);
+%XiBig = [XiBig;Xi];
+%end
+%plot(hm)
+%hold on
+%xlabel('Iteration Number')
+%ylabel('Xi Variation')
 %normcdf
 %conver to gamme dist, gampdf
 sigma2 = .05^2;
-E = 210; %Mean young's modulus
+E = 210e9; %Mean young's modulus
 
 %A = E/(sigma^2)+2;
 %B = (E^3/sigma^2)+E; 
-
-B = 370440000000000000000210000000000;
-A = 1764000000000000000002;
+A = 1/sigma2;
+B = E/A;
 
 Phi = normcdf(Xi); %Calc phi
 P = gaminv(Phi,A,B); %Calc p
