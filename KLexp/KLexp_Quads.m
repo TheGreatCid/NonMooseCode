@@ -4,8 +4,8 @@ clc;clear;close all;
 %% Common Values
 correlation = .020; %m
 standdev = 1; % 5%
-calc = 0;
-%% Importing Mesh
+calc = 1;
+%% Importing MeshgradShape
 
 fid = fopen('KLquarter.msh');
 
@@ -41,8 +41,12 @@ el = matData2{1}(:,6:end)';
 %xi1 = [1/sqrt(3); -1/sqrt(3)]; %Integration points
 %xi2 = [1/sqrt(3); -1/sqrt(3)];
 
-xi = [1/sqrt(3), -1/sqrt(3), -1/sqrt(3), 1/sqrt(3);
-      1/sqrt(3), 1/sqrt(3), -1/sqrt(3), -1/sqrt(3)];
+% xi = [-1/sqrt(3), 1/sqrt(3), 1/sqrt(3), -1/sqrt(3); %This matches order
+% of shape functions
+ %     1/sqrt(3), 1/sqrt(3), -1/sqrt(3), -1/sqrt(3)]; %Double check order of parametric coords
+
+xi = [-1/sqrt(3), 1/sqrt(3), 1/sqrt(3), -1/sqrt(3);
+      -1/sqrt(3), -1/sqrt(3), 1/sqrt(3), 1/sqrt(3)];
 
 w = [1 1 1 1];
    %Weighting
@@ -94,8 +98,8 @@ for m = 1:NumEl %Outer element loop
                     
                     
                     tau = norm(coordp-coordq);
+                    %Cs = standdev^2*exp(-tau^2/correlation^2);
                     Cs = standdev^2*exp(-tau^2/correlation^2);
-                    
                     CeInn = CeInn + Cs*Nq*det(Jq)*w(q); %Calculate inner summation                     
                 end
 
@@ -109,7 +113,6 @@ for m = 1:NumEl %Outer element loop
         end
             Nij(idxm,idxm) = Nij(idxm,idxm) + Ne;
         
-        % Ne = Ne + Np*Np'*det(Jm)*w(p); %Calc N matrix
         
         % Nij(idx2,idx2) = Nij(idx2,idx2) + Ne; %Put values where nodal DoFs are located
         %Integrating about single variable but still to loop about both sets of
@@ -161,11 +164,19 @@ end
 
 D2 = sqrt(D(1:50)); %squrt of first 50 eigen values
 
-V2 = V(:,idx); %First 50 eigenvectors
+%V2 = V(:,idx); %Sorting V
+V2 = V(:,idx);
+%V2 = V2(:,1:50);
 V2 = V2(:,1:50);
-
+for n = 1:1000
 eta = randn(50,1);
 Xi = V2*(D2.*eta); %First 50 eigenvectors * First 50 eigenvectors * Normalized distibution
+hm(n) = var(Xi);
+end
+plot(hm)
+hold on
+xlabel('Iteration Number')
+ylabel('Xi Variation')
 %normcdf
 %conver to gamme dist, gampdf
 sigma2 = .05^2;
@@ -174,8 +185,8 @@ E = 210; %Mean young's modulus
 %A = E/(sigma^2)+2;
 %B = (E^3/sigma^2)+E; 
 
-B = (E^3)/sigma2+E;
-A = B/E+1;
+B = 370440000000000000000210000000000;
+A = 1764000000000000000002;
 
 Phi = normcdf(Xi); %Calc phi
 P = gaminv(Phi,A,B); %Calc p
