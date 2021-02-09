@@ -216,39 +216,11 @@ for m = 1:NumEl
 end
 colorbar
 title('Patch')
-%% Get values from FE mesh
-fid = fopen('quarter.msh');
 
-hdrRows = 13;
-FEhdrData = textscan(fid,'%s', hdrRows,'Delimiter','\n');
-FEmatData = textscan(fid,'%f%f%f%f','Delimiter',' ','CollectOutput',true);
-FEhdrData2 = textscan(fid,'%s', 1198, 'Delimiter','\n');
-FEmatData2 = textscan(fid,'%f%f%f%f%f%f%f%f%f','Delimiter',' ','CollectOutput',true);
+%% Generate text file
 
-fclose(fid);
-FEnodes = matData{1}(:,2:3);
-FEel = matData2{1}(:,6:end)';
+txtfileformoose('KLQuadData.txt',nodes(:,1),nodes(:,2),P);
 
-[FEcN, FErN] = size(FEnodes);
-[FEcE,FErE] = size(FEel);
-
-% %% Transfer values to FE mesh
-% 
-% C_FE = zeros(FEcN);
-% %xis(1,:) = [0,0,0,0];
-% %xis(2,:) = [0,0,0,0];
-% m = 1;
-% fun = @(x)sums(x(1,:),x(2,:),m,FEel,el,nodes,FEnodes);
-% for j = 1:FErE
-%    
-%     
-%     idx = [el(1,j), el(2,j), el(3,j), el(4,j)];
-%     %F(:,:) = sums(xis,m,FEel,el,nodes,FEnodes);
-%     xis = fsolve(fun,[0,0,0,0;0,0,0,0]);
-%     nodepara(m,:) = [xis(1,:);xis(2,:)];
-%     
-%     
-% end
 
 
 
